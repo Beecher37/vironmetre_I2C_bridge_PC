@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.IO.Ports;
 using System.Linq;
 using System.Text;
@@ -16,13 +17,18 @@ namespace Vironmetre
 
         static void Main(string[] args)
         {
-            Console.CancelKeyPress += Console_CancelKeyPress;
-            Console.WriteLine("Vironmetre simple \"I2C bridge\" demo");
-            Console.WriteLine("with PIC18F25K20 and serial port");
+            using (TextWriter writer = new StreamWriter("log.txt"))
+            {
+                Console.SetError(writer);
 
-            Test();
+                Console.CancelKeyPress += Console_CancelKeyPress;
+                Console.WriteLine("Vironmetre simple \"I2C bridge\" demo");
+                Console.WriteLine("with PIC18F25K20 and serial port");
 
-            Console.ReadKey();
+                Test();
+
+                Console.ReadKey();
+            }
         }
 
         private static void Console_CancelKeyPress(object sender, ConsoleCancelEventArgs e)
@@ -47,11 +53,28 @@ namespace Vironmetre
 
                     Console.WriteLine("Awaiting I2C device connection...");
 
-                    bool devicePresent = await api.I2CDevicePresent();
+                    string ls = port.ReadLine();
+
+                    if (ls.Contains("LS"))
+                    {
+                        port.WriteLine("2000");
+                        port.WriteLine("3000, 000E, V");
+                        port.WriteLine("3000, 000F, C");
+                        port.WriteLine("3001, 0011, V");
+                        port.WriteLine("3002, 0013, V");
+                        port.WriteLine("3002, 0014, C");
+                        port.WriteLine("180F");
+                        port.WriteLine("2A19, 0017, V");
+                        port.WriteLine("2A19, 0018, C");
+                        port.WriteLine("END");
+                    }
+
+                    byte address = 0;
+                    bool devicePresent = api.I2CDevicePresent(ref address);
 
                     if (devicePresent)
                     {
-                        switch(port.ReadByte())
+                        switch (address)
                         {
                             case BMP180.address:
                                 Console.WriteLine("BMP180!");
@@ -117,8 +140,8 @@ namespace Vironmetre
             {
                 line = Console.ReadLine();
 
-               // if ()
-               //     break;
+                // if ()
+                //     break;
             }
             while (!string.IsNullOrEmpty(line) && (!line.StartsWith("COM") || line.Length > 5 || !availablePorts.Contains(line)));
 

@@ -104,7 +104,7 @@ namespace Vironmetre.Sensors
             {
                 // Compute floating-point polynominals
 
-                /*
+                
                 Console.WriteLine($"AC1 = {AC1}" + nl + 
                                   $"AC2 = {AC2}" + nl +
                                   $"AC3 = {AC3}" + nl +
@@ -116,7 +116,7 @@ namespace Vironmetre.Sensors
                                   $"MB  = {MB}"  + nl +
                                   $"MC  = {MC}"  + nl +
                                   $"MD  = {MD}");
-                */
+                
 
                 c3 = 160.0 * Math.Pow(2, -15) * AC3;
                 c4 = Math.Pow(10, -3) * Math.Pow(2, -15) * AC4;

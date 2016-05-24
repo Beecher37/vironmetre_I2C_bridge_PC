@@ -26,6 +26,7 @@ namespace Vironmetre.I2C
                 throw new ArgumentNullException();
 
             this.port = port;
+            port.NewLine = "\r\n";
             port.Open();
             port.ReadTimeout = SerialPort.InfiniteTimeout;
             port.WriteTimeout = SerialPort.InfiniteTimeout;
@@ -35,9 +36,10 @@ namespace Vironmetre.I2C
         /// Async task. Waits for the remote controller to send I2C device presence.
         /// </summary>
         /// <returns>True if there is an I2C device connected on the remote controller.</returns>
-        public async Task<bool> I2CDevicePresent()
+        public bool I2CDevicePresent(ref byte address)
         {
-            byte[] buffer = new byte[2];
+            address = 0;
+            /*byte[] buffer = new byte[2];
             int length = buffer.Length;
 
             do
@@ -48,7 +50,23 @@ namespace Vironmetre.I2C
            // port.ReadTimeout = 200;
            // port.WriteTimeout = 200;
 
-            return buffer[0] == INFO_DEVICE_PLUGGED && buffer[1] == 0x01;
+            return buffer[0] == INFO_DEVICE_PLUGGED && buffer[1] == 0x01;*/
+
+            string line = port.ReadLine();
+
+            Console.Error.WriteLine("R:" + line);
+
+            if (line.StartsWith("SHW,000E,"))
+            {
+                line = line.Substring(9);
+                if (Convert.ToByte(line.Substring(0, 2), 16) > 0)
+                {
+                    address = Convert.ToByte(line.Substring(2), 16);
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public bool ClearBuffer()
@@ -107,31 +125,36 @@ namespace Vironmetre.I2C
             try
             {
                 // Send info to microcontroller
-                port.BaseStream.WriteByte(CMD_READ);
-                port.BaseStream.WriteByte(deviceAddress);
-                port.BaseStream.WriteByte(length);
 
-               // Thread.Sleep(100);
+                string writenLine = $"WV,0011,01{length.ToString("X2")}.";
+                port.WriteLine(writenLine);
+                Console.Error.WriteLine("W:" + writenLine);
 
-                int readValue = 0;
+               // Thread.Sleep(10);
 
-                // Read the data, if possible. Stop and return null if communication is broken/has timed out
-                int b1 = port.BaseStream.ReadByte();
-                int b2 = port.BaseStream.ReadByte();
+                string readString = port.ReadLine().Trim('\r', '\n');
 
-                if (b1 == CMD_READ && b2 == length)
+                Console.Error.WriteLine("R:" + readString);
+
+                if (readString.StartsWith("SHW,0013,"))
                 {
-                    for (int i = 0; i < length; i++)
-                    {
-                        readValue = port.ReadByte();
-                        if (readValue >= 0)
-                            readBuffer[i] = (byte)readValue;
-                        else
-                            return false;
-                    }
+                    readString = readString.Substring(9);
 
-                    return true;
+                    if (Convert.ToByte(readString.Substring(0, 2), 16) == 0x01 &&
+                        Convert.ToByte(readString.Substring(2, 2), 16) == length)
+                    {
+                        readString = readString.Substring(4);
+                        for (int i = 0; i < length; i++)
+                        {
+                            readBuffer[i] = Convert.ToByte(readString.Substring(0, 2), 16);
+                            readString = readString.Substring(2);
+                        }
+
+                        return true;
+                    }
                 }
+
+                return false;
             }
             catch (Exception e)
             {
@@ -154,14 +177,40 @@ namespace Vironmetre.I2C
 
             try
             {
+                string wr = $"WV,0011,00{length.ToString("X2")}";
+
+                for (int i = 0; i < length; i++)
+                {
+                    wr += writeBuffer[i].ToString("X2");
+                }
+
+                wr += ".";
+
+                port.WriteLine(wr);
+                Console.Error.WriteLine("W:" + wr);
+
+//                Thread.Sleep(10);
+
                 // Send info to microcontroller
-                port.BaseStream.WriteByte(CMD_WRITE);
+                /*port.BaseStream.WriteByte(CMD_WRITE);
                 port.BaseStream.WriteByte(deviceAddress);
                 port.BaseStream.WriteByte(length);
                 port.BaseStream.Write(writeBuffer, 0, length);
+                */
 
-                if (port.ReadByte() == CMD_WRITE && port.ReadByte() == length)
-                    return true;
+                string line = port.ReadLine().Trim('\r','\n');
+
+                Console.Error.WriteLine("R:" + line);
+                if (line.StartsWith("SHW,0013,"))
+                {
+                    line = line.Substring(9);
+
+                    if (Convert.ToByte(line.Substring(0, 2), 16) == 0x00 &&
+                        Convert.ToByte(line.Substring(2, 2), 16) == length)
+                    {
+                        return true;
+                    }
+                }
             }
             catch (Exception e)
             {
